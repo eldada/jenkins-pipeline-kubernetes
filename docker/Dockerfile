@@ -1,4 +1,5 @@
-FROM nginx:1.13.8
-MAINTAINER Eldad Assis "eldad.assis@gmail.com"
+FROM nginx:1.15.8
+
+LABEL Author "eldada@jfrog.com"
 
 COPY site /usr/share/nginx/html
