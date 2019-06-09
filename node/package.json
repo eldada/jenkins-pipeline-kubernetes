@@ -1,0 +1,13 @@
+{
+  "name": "docker_node_app",
+  "version": "0.0.1",
+  "description": "Node.js app in Docker",
+  "author": "Eldad Assis <eldad.assis@gmail.com>",
+  "main": "demo.js",
+  "scripts": {
+    "start": "node demo.js"
+  },
+  "dependencies": {
+    "express": "^4.16.1"
+  }
+}

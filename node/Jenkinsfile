@@ -1,0 +1,61 @@
+/*
+    An example simple CI/CD of a node web app from sources into Kubernetes
+ */
+pipeline {
+    options {
+        // Build auto timeout
+        timeout(time: 60, unit: 'MINUTES')
+    }
+
+    // Some global default variables
+    environment {
+        nodePath = 'node'
+        repository = 'demo'
+        registry = 'docker-artifactory-webinar.jfrogdev.co'
+        registryCredential = 'dockerregistrywebinar'
+    }
+
+    parameters {
+        string(name: 'IMAGE_TAG', defaultValue: '0.0', description: 'Default image tag (the build number will be appended as .${BUILD_NUMBER})')
+    }
+
+    // In this example, all is built and run from the master
+    agent { node { label 'master' } }
+
+    // Pipeline stages
+    stages {
+
+        ////////// Step 1 //////////
+        stage('Docker build') {
+            steps {
+                // Make sure parameters file exists
+                script {
+                    git branch: 'node-example',
+                        url: 'git@github.com:eldada/jenkins-pipeline-kubernetes.git'
+
+                    echo "========== Docker build =========="
+                    def dockerfile = "${WORKSPACE}/${nodePath}/Dockerfile"
+                    echo "Build path: ${dockerfile}"
+
+                    def fullImage = "${registry}/${repository}:${IMAGE_TAG}.${env.BUILD_NUMBER}"
+                    def dockerImage = docker.build(fullImage, "-f ${dockerfile} ${WORKSPACE}/${nodePath}")
+
+                    echo "========== Test Docker image =========="
+                    // Test Docker image
+                    docker.image(fullImage).withRun('--name node-test -p 8888:8080') { c ->
+                        sh 'sleep 5'
+                        sh 'curl -s http://localhost:8888'
+                    }
+
+                    echo "========== Docker push =========="
+                    echo "Pushing to ${registry}"
+                    // def buildInfo = rtDocker.push fullImage, 'docker'
+                    docker.withRegistry( "http://${registry}", registryCredential ) {
+                        dockerImage.push()
+                    }
+                }
+            }
+        }
+    }
+}
+

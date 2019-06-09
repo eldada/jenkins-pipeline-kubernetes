@@ -3,3 +3,4 @@
 tmp
 logs
 build
+node/node_modules

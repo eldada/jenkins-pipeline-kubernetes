@@ -42,3 +42,6 @@ $ ./build.sh --help
 
 You can also pack and push the Docker image and Helm chart.
 
+
+## NodeJS example
+There is a simple [nodejs](node) example for building a small "Hello World", packing in Docker and deploying to Kubernetes
