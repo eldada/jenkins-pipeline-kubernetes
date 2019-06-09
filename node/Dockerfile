@@ -8,7 +8,7 @@ LABEL Author="eldada@jfrog.com"
 WORKDIR /usr/src/app
 
 # Copy the .npmrc with the credentials for the provate Artifactory npm registry
-COPY .npmrc /root/.npmrc
+COPY ./.npmrc /root/.npmrc
 
 # Install app dependencies
 # A wildcard is used to ensure both package.json AND package-lock.json are copied
@@ -18,9 +18,7 @@ COPY demo.js .
 RUN npm install && \
     rm -rfv .npmrc /root/.npmrc
 
-# Bundle app source
-
-# Second build
+# Main build
 FROM docker-artifactory-webinar.jfrogdev.co/node:12.4.0-alpine
 WORKDIR /usr/src/app
 
