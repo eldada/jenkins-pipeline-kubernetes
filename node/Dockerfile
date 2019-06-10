@@ -1,5 +1,4 @@
-# Small base image pulled from private Artifactory,
-# which had a remote repository proxying dockerhub
+# Small base image pulled from private Artifactory, which has a remote repository proxying dockerhub
 FROM docker-artifactory-webinar.jfrogdev.co/node:12.4.0-alpine AS builder
 
 LABEL Author="eldada@jfrog.com"
@@ -11,14 +10,11 @@ ARG NPM_REGISTRY="https://artifactory-webinar.jfrogdev.co/artifactory/api/npm/np
 # Set app directory
 WORKDIR /usr/src/app
 
-# Copy the .npmrc with the credentials for the provate Artifactory npm registry
-#COPY ./.npmrc /root/.npmrc
-
-# Install app dependencies
 # A wildcard is used to ensure both package.json AND package-lock.json are copied
 COPY package*.json ./
 COPY demo.js .
 
+# Install app dependencies
 RUN echo "_auth = ${NPM_AUTH}" > .npmrc && \
     echo "always-auth = true" >> .npmrc && \
     echo "email = ${NPM_EMAIL}" >> .npmrc && \

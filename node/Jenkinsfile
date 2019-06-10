@@ -1,6 +1,39 @@
 /*
-    An example simple CI/CD of a node web app from sources into Kubernetes
+    An example simple CI/CD of a node web app "from git to Kubernetes"
  */
+
+
+/*
+    Helm install
+ */
+def helmInstall (namespace, release) {
+    echo "Installing ${release} in ${namespace}"
+
+    script {
+        release = "${release}-${namespace}"
+        sh "helm repo add helm ${HELM_REPO}; helm repo update"
+        sh """
+            helm upgrade --install --namespace ${namespace} ${release} \
+                --set imagePullSecrets=${IMG_PULL_SECRET} \
+                --set image.repository=${DOCKER_REG}/${IMAGE_NAME},image.tag=${DOCKER_TAG} helm/acme
+        """
+        sh "sleep 5"
+    }
+}
+
+/*
+    Helm delete (if exists)
+ */
+def helmDelete (namespace, release) {
+    echo "Deleting ${release} in ${namespace} if deployed"
+
+    script {
+        release = "${release}-${namespace}"
+        sh "[ -z \"\$(helm ls --short ${release} 2>/dev/null)\" ] || helm delete --purge ${release}"
+    }
+}
+
+
 pipeline {
     options {
         // Build auto timeout
@@ -12,12 +45,16 @@ pipeline {
         nodePath = 'node'
         repository = 'demo'
         registry = 'docker-artifactory-webinar.jfrogdev.co'
-        registryCredential = 'dockerregistrywebinar'
+        creds = 'dockerregistrywebinar'
+        artCreds = credentials('dockerregistrywebinar')
+        helmRepo = 'https://artifactory-webinar.jfrogdev.co/artifactory/helm'
+
+        IMAGE_TAG = '0.0'
     }
 
-    parameters {
-        string(name: 'IMAGE_TAG', defaultValue: '0.0', description: 'Default image tag (the build number will be appended as .${BUILD_NUMBER})')
-    }
+    // parameters {
+    //     // string(name: 'IMAGE_TAG', defaultValue: '0.0', description: 'Default image tag (the build number will be appended as .${BUILD_NUMBER})')
+    // }
 
     // In this example, all is built and run from the master
     agent { node { label 'master' } }
@@ -25,33 +62,80 @@ pipeline {
     // Pipeline stages
     stages {
 
-        ////////// Step 1 //////////
+        /*
+        Step 1
+
+        Build the Docker image of the node web app and run a local test (curl)
+        */
         stage('Docker build') {
             steps {
-                // Make sure parameters file exists
                 script {
+                    echo "========== Git clone =========="
                     git branch: 'node-example',
-                        url: 'git@github.com:eldada/jenkins-pipeline-kubernetes.git'
+                            url: 'git@github.com:eldada/jenkins-pipeline-kubernetes.git'
 
                     echo "========== Docker build =========="
                     def dockerfile = "${WORKSPACE}/${nodePath}/Dockerfile"
                     echo "Build path: ${dockerfile}"
 
                     def fullImage = "${registry}/${repository}:${IMAGE_TAG}.${env.BUILD_NUMBER}"
-                    def dockerImage = docker.build(fullImage, "-f ${dockerfile} ${WORKSPACE}/${nodePath}")
+
+                    def dockerImage
+                    dir("${WORKSPACE}/${nodePath}"){
+                        dockerImage = docker.build(fullImage, "--build-arg NPM_AUTH=${NPM_AUTH} -f ${dockerfile} .")
+                    }
 
                     echo "========== Test Docker image =========="
                     // Test Docker image
                     docker.image(fullImage).withRun('--name node-test -p 8888:8080') { c ->
-                        sh 'sleep 5'
+                        sh 'sleep 3'
                         sh 'curl -s http://localhost:8888'
                     }
 
                     echo "========== Docker push =========="
                     echo "Pushing to ${registry}"
-                    // def buildInfo = rtDocker.push fullImage, 'docker'
-                    docker.withRegistry( "http://${registry}", registryCredential ) {
+                    docker.withRegistry( "http://${registry}", creds ) {
                         dockerImage.push()
+                    }
+                }
+            }
+        }
+
+        /*
+        Step 2
+
+        Package helm chart and publish to Artifactory
+         */
+        stage('Helm package') {
+            steps {
+                script {
+                    dir("${WORKSPACE}/${nodePath}"){
+                        echo "========== Helm package =========="
+                        sh "helm package demo"
+
+                        echo "========== Publish helm chart =========="
+                        sh "curl -u${artCreds} -T demo '${helmRepo}/demo-${IMAGE_TAG}.${env.BUILD_NUMBER}.tgz)'"
+                    }
+                }
+            }
+        }
+
+        /*
+         Step 3
+
+         Deploy to Kubernetes and run test
+
+         - Assumes kubectl and helm client already configured
+          */
+        stage('Deploy') {
+            steps {
+                script {
+                    dir("${WORKSPACE}/${nodePath}"){
+                        echo "========== Helm repo add =========="
+                        sh "helm repo add --username ${artCreds_USR} --password ${artCreds_PSW} webinar ${helmRepo}"
+
+                        echo "========== Deploy =========="
+                        sh "helm upgrade --install webinar-example webinar/demo"
                     }
                 }
             }
