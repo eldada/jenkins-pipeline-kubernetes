@@ -115,7 +115,7 @@ pipeline {
                         sh "helm package demo"
 
                         echo "========== Publish helm chart =========="
-                        sh "curl -u${artCreds} -T demo '${helmRepo}/demo-${HELM_CHART_VERSION}.tgz'"
+                        sh "curl -u${artCreds} -T ./demo-${HELM_CHART_VERSION}.tgz '${helmRepo}/demo-${HELM_CHART_VERSION}.tgz'"
                     }
                 }
             }
