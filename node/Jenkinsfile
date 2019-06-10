@@ -50,6 +50,7 @@ pipeline {
         helmRepo = 'https://artifactory-webinar.jfrogdev.co/artifactory/helm'
 
         IMAGE_TAG = '0.0'
+        HELM_CHART_VERSION = '0.0.1'
     }
 
     // parameters {
@@ -114,7 +115,7 @@ pipeline {
                         sh "helm package demo"
 
                         echo "========== Publish helm chart =========="
-                        sh "curl -u${artCreds} -T demo '${helmRepo}/demo-${IMAGE_TAG}.${env.BUILD_NUMBER}.tgz)'"
+                        sh "curl -u${artCreds} -T demo '${helmRepo}/demo-${HELM_CHART_VERSION}.tgz)'"
                     }
                 }
             }
@@ -126,6 +127,7 @@ pipeline {
          Deploy to Kubernetes and run test
 
          - Assumes kubectl and helm client already configured
+         - Assumes a private 'helm' repository is already configured in Artifactory
           */
         stage('Deploy') {
             steps {
@@ -135,7 +137,7 @@ pipeline {
                         sh "helm repo add --username ${artCreds_USR} --password ${artCreds_PSW} webinar ${helmRepo}"
 
                         echo "========== Deploy =========="
-                        sh "helm upgrade --install webinar-example webinar/demo"
+                        sh "helm upgrade --install webinar-example --set image.tag=${IMAGE_TAG}.${env.BUILD_NUMBER} webinar/demo"
                     }
                 }
             }
